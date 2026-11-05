@@ -1,0 +1,6 @@
+/.output/
+/falco-lite
+/falco-lite-tests
+*.flrec
+*.jsonl
+smoke.log

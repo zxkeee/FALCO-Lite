@@ -1,0 +1,65 @@
+# Falco-lite: правила виявлення.
+#
+# Усередині одного поля значення об'єднуються через OR, різні поля — через AND.
+# Рядки — glob-шаблони (fnmatch): php-fpm* збігається з php-fpm8.3.
+# Якщо подія збіглася з кількома правилами, повідомляються всі,
+# а виконується найсильніша дія: kill > alert > log.
+#
+# Поля та syscall'и описано в README, розділ «Правила».
+
+- name: reverse_shell
+  severity: critical
+  when:
+    syscall: connect
+    proc.comm: [bash, sh, dash, zsh]
+    proc.ancestor: [php-fpm*, nginx, apache2, httpd, node, cron]
+  action: kill
+
+- name: exec_from_tmp
+  severity: high
+  when:
+    syscall: execve
+    proc.exe.prefix: [/tmp/, /dev/shm/, /var/tmp/]
+  action: kill
+
+- name: shadow_read
+  severity: high
+  when:
+    syscall: openat
+    file.path: /etc/shadow
+    proc.comm.not: [sshd, sudo, passwd, login, unix_chkpwd, chpasswd, useradd, usermod]
+  action: alert
+
+- name: setuid_root
+  severity: critical
+  when:
+    syscall: setuid
+    setuid.uid: 0
+    proc.uid.not: 0
+    proc.comm.not: [sudo, su, sudoedit, passwd, newgrp, pkexec]
+    proc.ancestor.not: [sudo, su]
+  action: kill
+
+- name: ptrace_attach
+  severity: high
+  when:
+    syscall: ptrace
+    ptrace.request: [attach, seize, poketext, pokedata]
+    proc.comm.not: [gdb, strace, ltrace, lldb]
+  action: kill
+
+- name: miner_exec
+  severity: high
+  when:
+    syscall: execve
+    proc.comm: [xmrig, minerd, cpuminer*, ccminer, xmr-stak*]
+  action: kill
+
+# Порт 4444 перетинається з reverse_shell із демо: такий connect збігається з
+# обома правилами, у виводі будуть обидва, дія одна — kill.
+- name: miner_pool_connect
+  severity: high
+  when:
+    syscall: connect
+    net.dport: [3333, 4444, 14444]
+  action: kill
