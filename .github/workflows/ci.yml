@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Залежності
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang llvm make gcc pkg-config \
+            libelf-dev zlib1g-dev libzstd-dev libyaml-dev libncurses-dev
+
+      - name: Юніт-тести (без eBPF)
+        run: make test
+
+      - name: Збірка
+        run: make -j"$(nproc)"
+
+      # Перевірка, що верифікатор пропускає BPF і події доходять до userspace.
+      - name: Smoke-тест на живому ядрі
+        run: |
+          uname -r
+          sudo ./falco-lite -c rules/rules.yaml > smoke.log 2>&1 &
+          sleep 3
+          for i in 1 2 3; do /bin/true; done
+          sleep 1
+          sudo pkill -INT -x falco-lite || true
+          sleep 1
+          cat smoke.log
+          grep -q "EXEC" smoke.log
+          grep -q "підсумок:" smoke.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: falco-lite
+          path: falco-lite

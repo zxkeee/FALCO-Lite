@@ -1,0 +1,6 @@
+- name: typo
+  when:
+    syscall: connect
+    proc.comm: [bash]
+    proc.cmd: [php-fpm]
+  action: kill
