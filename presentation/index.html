@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Falco-lite: захист проєкту</title>
+<style>
+:root {
+	--paper: #FAFAF8;
+	--grey: #F0F0EE;
+	--grey2: #D4D4D2;
+	--ink: #0A0A0A;
+	--body: #252524;
+	--sec: #525252;
+	--help: #5C5C5A;
+	--accent: #002FA7;
+	--accent-soft: #D5DEEF;
+	--accent-deep: #001D6B;
+	--on: #FFFFFF;
+	--kill: #B8322A;
+	--alert: #845500;
+	--ink2: var(--sec);
+	--sans: "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", system-ui, Arial, sans-serif;
+	--mono: "Cascadia Mono", "Cascadia Code", Consolas, "DejaVu Sans Mono", monospace;
+	--ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+	margin: 0;
+	height: 100%;
+	overflow: hidden;
+	background: var(--paper);
+	color: var(--body);
+	font-family: var(--sans);
+}
+
+.viewport { position: fixed; inset: 0; overflow: hidden; }
+
+.stage {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 1920px;
+	height: 1080px;
+	transform-origin: 0 0;
+}
+
+.slide {
+	position: absolute;
+	inset: 0;
+	width: 1920px;
+	height: 1080px;
+	padding: 120px 144px;
+	display: flex;
+	flex-direction: column;
+	background: var(--paper);
+	color: var(--body);
+	visibility: hidden;
+	opacity: 0;
+	z-index: 1;
+	transform: translateX(56px) scale(1.015);
+	filter: blur(8px);
+	transition: opacity .8s var(--ease), transform 1s var(--ease), filter .8s var(--ease), visibility 0s linear 1s;
+	hyphens: manual;
+}
+
+.slide.past { transform: translateX(-56px) scale(.985); }
+
+.slide.active {
+	visibility: visible;
+	opacity: 1;
+	z-index: 2;
+	transform: none;
+	filter: none;
+	transition: opacity .8s var(--ease) .1s, transform 1s var(--ease) .1s, filter .8s var(--ease) .1s;
+}
+
+.slide[data-id="cover"], .slide[data-id="questions"] { background: var(--accent); color: var(--on); }
+
+h1, h2, h3 { font-family: var(--sans); margin: 0; }
+h1 { font-size: 210px; font-weight: 200; line-height: 1; letter-spacing: -.035em; }
+h2 { font-size: 84px; font-weight: 300; line-height: 1.08; letter-spacing: -.03em; color: var(--ink); }
+h3 { font-size: 34px; font-weight: 400; line-height: 1.2; letter-spacing: -.015em; color: var(--ink); }
+
+.lead { font-size: 38px; font-weight: 300; line-height: 1.4; max-width: 1300px; margin: 40px 0 0; }
+
+.body { font-size: 27px; line-height: 1.5; color: var(--sec); }
+
+.dash { list-style: none; padding: 0; margin: 56px 0 0; }
+.dash li { position: relative; padding-left: 44px; font-size: 32px; line-height: 1.45; margin-bottom: 24px; max-width: 1450px; color: var(--body); }
+.dash li::before { content: ""; position: absolute; left: 0; top: .72em; width: 20px; height: 2px; background: var(--accent); }
+
+.mono { font-family: var(--mono); }
+.small { font-size: 22px; }
+.muted { color: var(--sec); }
+.gold { color: var(--accent); }
+
+.slide > .reveal { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+
+.cols { display: grid; gap: 0; margin-top: 64px; border-top: 1px solid var(--grey2); }
+.cols > div { padding: 36px 48px 0; border-left: 1px solid var(--grey2); }
+.cols > div:first-child { padding-left: 0; border-left: 0; }
+.c2 { grid-template-columns: 1fr 1fr; }
+.c3 { grid-template-columns: 1fr 1fr 1fr; }
+.c4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.cols h3 { margin-bottom: 16px; }
+.c4 h3 { font-size: 29px; }
+.cols .dash { margin-top: 20px; }
+.cols .dash li { font-size: 28px; margin-bottom: 18px; }
+
+.table { margin-top: 56px; border-top: 1px solid var(--ink); }
+.table .row { display: grid; border-bottom: 1px solid var(--grey2); padding: 22px 0; font-size: 27px; line-height: 1.35; align-items: baseline; color: var(--body); }
+.table .row.th { font: 500 16px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 16px 0; color: var(--help); }
+.table .row > div { padding-right: 32px; }
+.table .name { font-size: 30px; color: var(--ink); }
+.table.compact { margin-top: 40px; }
+.table.compact .row { padding: 16px 0; }
+.table .ok { color: var(--accent); font-weight: 600; }
+.t3 { grid-template-columns: 330px 1fr 1fr; }
+.t3b { grid-template-columns: 360px 1fr 260px; }
+.t3c { grid-template-columns: 380px 1fr 600px; }
+
+.stat .num { font-size: 112px; font-weight: 200; line-height: 1; letter-spacing: -.04em; color: var(--ink); }
+.stat .num .unit { font-size: 46px; letter-spacing: 0; color: var(--accent); }
+.stat .label { font-size: 26px; line-height: 1.35; margin-top: 24px; color: var(--ink); }
+.stat .note { font: 19px/1.45 var(--mono); margin-top: 14px; color: var(--help); }
+
+.code {
+	font: 26px/1.6 var(--mono);
+	background: var(--grey);
+	padding: 32px 40px 32px 0;
+	margin: 0;
+	color: var(--ink);
+	white-space: pre;
+	counter-reset: ln;
+	overflow: hidden;
+}
+.code .ln { display: block; }
+.code .ln::before { counter-increment: ln; content: counter(ln); display: inline-block; width: 64px; padding-right: 28px; text-align: right; color: var(--help); }
+.code .k { color: var(--accent); }
+.code .v { color: var(--ink); }
+
+.flow { display: flex; align-items: stretch; margin-top: 56px; }
+.box { background: var(--grey); padding: 26px 28px; flex: 1; color: var(--ink); }
+.box .tag { font: 500 15px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 16px; color: var(--help); }
+.box .t { font-size: 30px; line-height: 1.2; letter-spacing: -.01em; }
+.box .d { font-size: 21px; line-height: 1.4; margin-top: 10px; color: var(--sec); }
+.box.hot .tag, .box.hot .d { color: inherit; opacity: .8; }
+.arrow { display: flex; align-items: center; padding: 0 14px; font-size: 34px; font-weight: 300; color: var(--help); }
+
+.layer { display: flex; gap: 0; margin-top: 18px; }
+.layer .box { flex: 1; margin-right: 16px; padding: 20px 22px; }
+.layer .box:last-child { margin-right: 0; }
+.layer .box .t { font: 24px/1.2 var(--mono); }
+.band-label { font: 500 18px/1 var(--mono); letter-spacing: .04em; margin-top: 44px; color: var(--help); }
+
+.bus { position: relative; border: 1px dashed var(--help); text-align: center; padding: 18px; margin-top: 22px; font: 22px/1.3 var(--mono); color: var(--sec); }
+.bus::after { content: ""; position: absolute; top: -5px; left: 0; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); opacity: 0; }
+@keyframes packet { 0% { left: 0; opacity: 0; } 10% { opacity: 1; } 85% { opacity: 1; } 100% { left: calc(100% - 9px); opacity: 0; } }
+.slide.active .bus::after { animation: packet 2.4s cubic-bezier(.45, 0, .55, 1) 1.5s infinite; }
+
+.timeline { display: grid; grid-template-columns: repeat(8, 1fr); margin-top: 96px; position: relative; }
+.timeline::before { content: ""; position: absolute; left: 0; right: 0; top: 9px; height: 1px; background: var(--grey2); }
+.timeline .bar { position: absolute; left: 0; top: 9px; height: 2px; background: var(--accent); width: 0; transition: width 1.1s var(--ease) .2s; }
+.slide.active .timeline .bar { width: 100%; }
+.timeline .step { position: relative; padding-right: 20px; }
+.timeline .dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent); background: var(--paper); }
+.timeline .n { font: 500 16px/1 var(--mono); letter-spacing: .12em; color: var(--accent); margin-top: 28px; }
+.timeline .s { font-size: 28px; color: var(--ink); margin-top: 14px; letter-spacing: -.01em; }
+.timeline .w { font-size: 21px; line-height: 1.4; color: var(--sec); margin-top: 10px; }
+
+.log { align-self: flex-start; font: 23px/1.75 var(--mono); margin-top: 40px; background: var(--grey); padding: 24px 32px; color: var(--ink); }
+.log .l { display: grid; grid-template-columns: 150px 120px 290px 1fr; white-space: nowrap; }
+.log .t { color: var(--help); }
+.log .kill { color: var(--kill); font-weight: 700; }
+.log .alert { color: var(--alert); font-weight: 700; }
+
+.member .who { font-size: 42px; font-weight: 300; line-height: 1.15; letter-spacing: -.02em; color: var(--ink); }
+.member .role { font: 500 18px/1.3 var(--mono); letter-spacing: .02em; margin-top: 16px; color: var(--accent); }
+.member .what { font-size: 26px; line-height: 1.45; margin-top: 24px; }
+.member .files { font: 19px/1.6 var(--mono); margin-top: 24px; color: var(--help); }
+
+.cover h1 { margin-top: auto; }
+.cover .lead { color: rgba(255, 255, 255, .86); max-width: 1180px; }
+.cover .team { display: flex; gap: 64px; margin-top: auto; font-size: 28px; font-weight: 300; }
+.cover .team span { border-top: 1px solid rgba(255, 255, 255, .35); padding-top: 18px; }
+
+.slide[data-id="questions"] h1 { margin-top: auto; }
+.qlist { list-style: none; padding: 0; margin: auto 0 0; columns: 2; column-gap: 80px; }
+.qlist li { break-inside: avoid; border-top: 1px solid rgba(255, 255, 255, .3); padding: 18px 0; font-size: 26px; line-height: 1.35; }
+.qlist a { color: var(--on); text-decoration: none; }
+.qlist a:hover { text-decoration: underline; }
+.qlist .mono { color: rgba(255, 255, 255, .88); margin-right: 18px; font-size: 20px; }
+
+.answer { font-size: 32px; line-height: 1.5; max-width: 1500px; margin-top: 48px; color: var(--body); }
+.answer p { margin: 0 0 28px; }
+.back { font: 500 16px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; text-decoration: none; margin-top: auto; color: var(--accent); }
+.appendix .reveal { justify-content: center; }
+.appendix .back { margin-top: 56px; }
+
+.reveal > * { opacity: 0; transform: translateY(24px); transition: opacity .7s var(--ease), transform .8s var(--ease); }
+.slide.active .reveal > * { opacity: 1; transform: none; }
+.slide.active .reveal > *:nth-child(1) { transition-delay: .15s; }
+.slide.active .reveal > *:nth-child(2) { transition-delay: .23s; }
+.slide.active .reveal > *:nth-child(3) { transition-delay: .31s; }
+.slide.active .reveal > *:nth-child(4) { transition-delay: .39s; }
+.slide.active .reveal > *:nth-child(5) { transition-delay: .47s; }
+.slide.active .reveal > *:nth-child(6) { transition-delay: .55s; }
+.slide.active .reveal > *:nth-child(7) { transition-delay: .63s; }
+
+.stg > * { opacity: 0; transform: translateY(12px); transition: opacity .5s var(--ease), transform .6s var(--ease); transition-delay: calc(.4s + var(--i, 0) * .08s); }
+.slide.active .stg > * { opacity: 1; transform: none; }
+.flow.stg > * { transform: translateX(-16px); transition-delay: calc(.45s + var(--i, 0) * .1s); }
+.log.stg > * { transform: translateX(-8px); transition-delay: calc(.5s + var(--i, 0) * .1s); }
+
+.code .ln { opacity: 0; transform: translateX(-8px); transition: opacity .3s var(--ease), transform .4s var(--ease); transition-delay: calc(.45s + var(--i, 0) * .09s); }
+.slide.active .code .ln { opacity: 1; transform: none; }
+
+.bus { clip-path: inset(-12px 100% -12px 0); transition: clip-path 1s var(--ease) .6s; }
+.slide.active .bus { clip-path: inset(-12px -12px -12px 0); }
+
+.timeline .dot { transition: background-color .35s var(--ease); transition-delay: calc(.4s + var(--i, 0) * .12s); }
+.slide.active .timeline .dot { background-color: var(--accent); }
+
+@keyframes hot { from { background-color: var(--grey); color: var(--ink); } to { background-color: var(--accent); color: var(--on); } }
+.slide.active .box.hot { animation: hot .8s var(--ease) 1.1s both; }
+
+@keyframes pulse {
+	0%, 30%, 100% { background-color: var(--grey); }
+	8% { background-color: var(--accent-soft); }
+}
+@keyframes pulse-hot {
+	0%, 30%, 100% { background-color: var(--accent); color: var(--on); }
+	8% { background-color: var(--accent-deep); color: var(--on); }
+}
+.slide.active[data-id="architecture"] .flow .box { animation: pulse 2.4s ease-in-out calc(1.5s + 2.1s + var(--i, 0) * .1s) infinite; }
+.slide.active[data-id="architecture"] .flow .box.hot { animation: hot .8s var(--ease) 1.1s both, pulse-hot 2.4s ease-in-out calc(1.5s + 2.1s + var(--i, 0) * .1s) infinite; }
+
+.slide .bg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; }
+.has-bg .reveal { position: relative; z-index: 1; }
+
+.progress { position: fixed; left: 0; bottom: 0; height: 3px; background: var(--accent); width: 0; transition: width .6s var(--ease), background-color .6s var(--ease); z-index: 10; }
+.on-accent .progress { background: rgba(255, 255, 255, .85); }
+
+.notes {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	max-height: 38vh;
+	overflow: auto;
+	background: rgba(10, 10, 10, .94);
+	color: #F4F4F2;
+	border-top: 3px solid var(--accent);
+	padding: 18px 28px 26px;
+	font: 18px/1.55 var(--sans);
+	z-index: 20;
+	display: none;
+}
+.notes.on { display: block; }
+.notes .nt { font: 13px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: #96B0FF; margin-bottom: 10px; }
+
+.calm *, .calm *::before, .calm *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
+.calm .bus::after { display: none; }
+
+@media print {
+	@page { size: 1920px 1080px; margin: 0; }
+	*, *::before, *::after { animation: none !important; transition: none !important; }
+	.slide { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+	.box.hot { background-color: var(--accent) !important; color: var(--on) !important; }
+	.timeline .dot { background-color: var(--accent) !important; }
+	html, body { width: 1920px; height: auto; overflow: visible; background: none; }
+	.viewport { position: static; overflow: visible; }
+	.stage { position: static; width: auto; height: auto; transform: none !important; }
+	.slide { position: relative; display: flex !important; visibility: visible !important; opacity: 1 !important; transform: none !important; filter: none !important; break-after: page; }
+	.reveal > *, .stg > *, .code .ln { opacity: 1 !important; transform: none !important; }
+	.bus { clip-path: none !important; }
+	.bus::after { display: none !important; }
+	.timeline .bar { width: 100% !important; }
+	.chrome-ui { display: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="viewport">
+<div class="stage" id="stage">
+
+<section class="slide dark cover" data-id="cover" data-section="Захист проєкту" data-notes="≈15 с. Привітатися, назвати проєкт і команду. Суть одним реченням: Falco-lite бачить атаку на рівні ядра Linux і сам за мілісекунди зупиняє процес атакувальника. Регламент близько 9 хвилин. Вступ, слайди 1-5: близько 2,5 хв. Микита, слайди 6-7: 1,5 хв. Томас, слайди 8-9: 1,5 хв. Назар, слайди 10-13: близько 3 хв. Слайд 14 і питання: усі разом.">
+	<canvas class="bg" width="1920" height="1080"></canvas>
+	<div class="reveal" style="display:flex;flex-direction:column;height:100%">
+		<h1>falco-lite</h1>
+		<p class="lead">Агент runtime-захисту Linux на eBPF. Бачить атаку на рівні ядра і сам зупиняє процес атакувальника.</p>
+		<div class="team"><span>Микита Вельбовець</span><span>Томас Іванаускас</span><span>Назар Дяченко</span></div>
+	</div>
+</section>
+
+<section class="slide dark" data-id="lifecycle" data-section="План" data-notes="≈20 с. Доповідь іде кроками циклу розробки: проблема, вимоги, сценарії, дизайн, реалізація, демо, тести і валідація. Валідацією ми називаємо власні спроби обійти агента.">
+	<div class="reveal">
+		<h2>Цикл розробки</h2>
+		<div class="timeline">
+			<div class="bar"></div>
+			<div class="step"><div class="dot"></div><div class="n">01</div><div class="s">Проблема</div><div class="w">атаку видно з поведінки</div></div>
+			<div class="step"><div class="dot"></div><div class="n">02</div><div class="s">Вимоги</div><div class="w">що і як швидко</div></div>
+			<div class="step"><div class="dot"></div><div class="n">03</div><div class="s">Сценарії</div><div class="w">сервер, CI, лабораторія</div></div>
+			<div class="step"><div class="dot"></div><div class="n">04</div><div class="s">Дизайн</div><div class="w">eBPF + userspace</div></div>
+			<div class="step"><div class="dot"></div><div class="n">05</div><div class="s">Реалізація</div><div class="w">правила, дерево, реакція</div></div>
+			<div class="step"><div class="dot"></div><div class="n">06</div><div class="s">Демо</div><div class="w">8 атак + перевірка без алертів</div></div>
+			<div class="step"><div class="dot"></div><div class="n">07</div><div class="s">Тести</div><div class="w">128 перевірок</div></div>
+			<div class="step"><div class="dot"></div><div class="n">08</div><div class="s">Валідація</div><div class="w">спроби обходу</div></div>
+		</div>
+	</div>
+</section>
+
+<section class="slide light" data-id="problem" data-section="Проблема" data-notes="≈40 с. Антивірус шукає відомі шкідливі файли. Атакувальник на сервері зазвичай користується тим, що вже є в системі: bash, curl, nc. Тому ми стежимо за поведінкою: хто кого запустив, куди підключився, що прочитав. Реагувати треба автоматично, бо адміністратор не встигне.">
+	<div class="reveal">
+		<h2>Атаку видно з поведінки процесів</h2>
+		<ul class="dash">
+			<li>Антивірус шукає відомі шкідливі файли за сигнатурами.</li>
+			<li>Атакувальник працює легітимними програмами: <span class="mono">bash</span>, <span class="mono">curl</span>, <span class="mono">nc</span>.</li>
+			<li>Треба бачити, хто кого запустив, куди підключився і що прочитав, і зупиняти це без участі людини.</li>
+		</ul>
+	</div>
+</section>
+
+<section class="slide dark" data-id="requirements" data-section="Вимоги" data-notes="≈40 с. Функціональні вимоги описують, що агент робить, а нефункціональні описують умови, в яких він працює. Окремо сказати, що структурна помилка в конфігурації (невідомий ключ, повтор, kill без умов) зупиняє запуск, бо таке правило могло б непомітно вбивати не ті процеси.">
+	<div class="reveal">
+		<h2>Що має вміти агент</h2>
+		<div class="cols c2">
+			<div>
+				<h3>Функціональні</h3>
+				<ul class="dash">
+					<li>Бачити запуск програм, мережу, файли, привілеї, ptrace.</li>
+					<li>Описувати правила в YAML.</li>
+					<li>Реагувати: SIGKILL або алерт.</li>
+					<li>Писати лог у JSON і syslog, показувати панель.</li>
+				</ul>
+			</div>
+			<div>
+				<h3>Нефункціональні</h3>
+				<ul class="dash">
+					<li>Без модулів ядра і патчів.</li>
+					<li>Реакція за мілісекунди.</li>
+					<li>Структурна помилка в правилах зупиняє запуск.</li>
+					<li>Ніколи не вбиває pid 1, себе та своїх предків.</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="slide light" data-id="usecases" data-section="Сценарії" data-notes="≈30 с. Чотири з шести сценаріїв нашої початкової презентації. Найважливіший сценарій стосується веб-сервера: web shell у php-fpm запускає reverse shell, і агент вбиває shell за мілісекунди після підключення.">
+
+	<div class="reveal">
+		<h2>Де це потрібно</h2>
+		<div class="cols c4">
+			<div><h3>Веб-сервер, VPS</h3><p class="body">Web shell у php-fpm запускає reverse shell, і агент вбиває його за мілісекунди після connect().</p></div>
+			<div><h3>CI-раннери</h3><p class="body">Тут постійно виконується чужий код: supply-chain атака, майнер у pipeline.</p></div>
+			<div><h3>Лабораторії, honeypot</h3><p class="body">За JSON-логом спрацювань правил можна розбирати інциденти.</p></div>
+			<div><h3>Домашній сервер</h3><p class="body">Легкий агент замість комерційного EDR, без хмари.</p></div>
+		</div>
+	</div>
+</section>
+
+<section class="slide light" data-id="why-ebpf" data-section="Модуль 1 · Микита Вельбовець" data-notes="≈45 с. Порівняння підходів із нашої початкової презентації. auditd бачить постфактум і не реагує. LD_PRELOAD не бачить статичні бінарники. ptrace зупиняє процес на кожному виклику, для продакшену це занадто повільно. Помилка в модулі ядра може покласти ядро. eBPF-програму перевіряє верифікатор ядра, а CO-RE дозволяє один бінарник для різних ядер; ми перевіряли на ядрі 6.18.">
+	<div class="reveal">
+		<h2>Чому eBPF</h2>
+		<div class="table">
+			<div class="row th t3"><div>Підхід</div><div>Що бачить</div><div>Обмеження</div></div>
+			<div class="row t3"><div class="name">auditd</div><div>Події ядра</div><div>Постфактум, без реакції</div></div>
+			<div class="row t3"><div class="name">LD_PRELOAD</div><div>Виклики libc</div><div>Статичні бінарники невидимі</div></div>
+			<div class="row t3"><div class="name">ptrace, strace</div><div>Один процес</div><div>Зупиняє процес на кожному виклику</div></div>
+			<div class="row t3"><div class="name">Модуль ядра</div><div>Усе</div><div>Помилка може покласти ядро</div></div>
+			<div class="row t3"><div class="name ok">eBPF</div><div class="ok">Події ядра в реальному часі</div><div class="ok">Код перевіряє верифікатор ядра</div></div>
+		</div>
+	</div>
+</section>
+
+<section class="slide dark" data-id="architecture" data-section="Модуль 1 · Микита Вельбовець" data-notes="≈50 с. Зверху ядро: 12 маленьких програм на функціях ядра і tracepoint'ах. Кожна подія приходить як одна структура з pid, батьком, іменем і деталями. Вона йде через ring buffer у userspace: завантажувач, дерево процесів, рушій правил, реакція. Рішення приймається в userspace, ядро лише спостерігає. Детальна таблиця хуків є в додатку, якщо спитають.">
+	<div class="reveal">
+		<h2>Шлях однієї події</h2>
+		<div class="band-label">Ядро Linux · 12 eBPF-програм</div>
+		<div class="layer">
+			<div class="box"><div class="t">execve</div></div>
+			<div class="box"><div class="t">fork · exit</div></div>
+			<div class="box"><div class="t">connect</div></div>
+			<div class="box"><div class="t">openat</div></div>
+			<div class="box"><div class="t">setuid</div></div>
+			<div class="box"><div class="t">ptrace</div></div>
+		</div>
+		<div class="bus">ring buffer · одна подія = pid, батько, ім'я, шлях або адреса</div>
+		<div class="band-label">Userspace · демон на C</div>
+		<div class="flow" style="margin-top:18px">
+			<div class="box"><div class="tag">loader</div><div class="t">Завантажувач</div><div class="d">хуки, файли під наглядом</div></div>
+			<div class="arrow">→</div>
+			<div class="box"><div class="tag">proctree</div><div class="t">Дерево процесів</div><div class="d">хто кого запустив</div></div>
+			<div class="arrow">→</div>
+			<div class="box"><div class="tag">engine</div><div class="t">Рушій правил</div><div class="d">YAML → збіг</div></div>
+			<div class="arrow">→</div>
+			<div class="box hot"><div class="tag">response</div><div class="t">Реакція</div><div class="d">kill · JSON · syslog · TUI</div></div>
+		</div>
+	</div>
+</section>
+
+<section class="slide dark" data-id="rules" data-section="Модуль 2 · Томас Іванаускас" data-notes="≈45 с. Правило складається з події, умов і дії. Усі умови мають виконатися разом. Суфікс .not інвертує умову, так пишуться allow-list. Якщо в конфігу невідомий ключ, повторений ключ чи kill-правило без умов, агент не запускається: правило з помилкою могло б убивати не те. Обмеження: описку в шляху до файлу агент не розпізнає, такий файл просто не знайдеться.">
+	<div class="reveal">
+		<h2>Правило = подія + умови + дія</h2>
+		<div class="cols c2" style="margin-top:48px;grid-template-columns:1.05fr 1fr">
+			<div>
+<pre class="code"><span class="k">- name:</span> <span class="v">reverse_shell</span>
+  <span class="k">when:</span>
+    <span class="k">syscall:</span> <span class="v">connect</span>
+    <span class="k">proc.comm:</span> <span class="v">[bash, sh, dash]</span>
+    <span class="k">proc.ancestor:</span> <span class="v">[php-fpm, nginx]</span>
+  <span class="k">action:</span> <span class="v">kill</span></pre>
+			</div>
+			<div>
+				<ul class="dash" style="margin-top:0">
+					<li>Мають виконатися всі умови, а зі списку достатньо одного значення.</li>
+					<li><span class="mono gold">.not</span> інвертує умову: так пишуться allow-list.</li>
+					<li>Зі структурною помилкою в конфігу агент не стартує.</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="slide light" data-id="proctree" data-section="Модуль 2 · Томас Іванаускас" data-notes="≈45 с. Сам по собі reverse shell виглядає як звичайний bash, який підключився до мережі. Небезпечним його робить контекст: серед предків є веб-сервер. Тому ми ведемо дерево процесів з подій fork, exec і exit. Атакувальник часто запускає shell у фоні, щоб проміжний процес одразу завершився. Ми зберігаємо мертвий вузол, доки живі його нащадки, тому ланцюжок не рветься.">
+	<div class="reveal">
+		<h2>Хто запустив процес</h2>
+		<div class="flow">
+			<div class="box"><div class="tag">предок</div><div class="t">php-fpm</div><div class="d">веб-сервер</div></div>
+			<div class="arrow">→</div>
+			<div class="box"><div class="tag">завершився</div><div class="t">sh</div><div class="d">запуск у фоні: <span class="mono">&amp;</span>, <span class="mono">setsid</span></div></div>
+			<div class="arrow">→</div>
+			<div class="box"><div class="tag">процес</div><div class="t">bash</div><div class="d">connect() назовні</div></div>
+			<div class="arrow">→</div>
+			<div class="box hot"><div class="tag">правило</div><div class="t">reverse_shell</div><div class="d">SIGKILL</div></div>
+		</div>
+		<ul class="dash" style="margin-top:56px">
+			<li>Дерево будується з подій fork, exec і exit та з <span class="mono">/proc</span> при старті.</li>
+			<li>Вузол завершеного процесу лишається в дереві, доки живі його нащадки, тому ланцюжок не рветься.</li>
+		</ul>
+	</div>
+</section>
+
+<section class="slide light" data-id="attacks" data-section="Модуль 3 · Назар Дяченко" data-notes="≈45 с. Сім правил покривають п'ять класів атак з нашої таблиці. Читання shadow дає лише алерт, бо легітимні програми теж його читають. На решту агент відповідає SIGKILL. Правило setuid спрацьовує, коли процес не-root отримує root не через sudo, su, passwd чи інші системні setuid-програми.">
+	<div class="reveal">
+		<h2>Що ловить агент</h2>
+		<div class="table">
+			<div class="row th t3b"><div>Атака</div><div>Що бачить агент</div><div>Реакція</div></div>
+			<div class="row t3b"><div class="name">Reverse shell</div><div>shell підключається назовні, а серед предків є веб-сервер або cron</div><div class="ok">SIGKILL</div></div>
+			<div class="row t3b"><div class="name">Запуск із /tmp</div><div>exec файлу з /tmp, /dev/shm, /var/tmp</div><div class="ok">SIGKILL</div></div>
+			<div class="row t3b"><div class="name">/etc/shadow</div><div>відкриття не з allow-list, навіть невдале</div><div>алерт</div></div>
+			<div class="row t3b"><div class="name">Привілеї</div><div>не-root отримує root; ptrace-під'єднання не налагоджувачем</div><div class="ok">SIGKILL</div></div>
+			<div class="row t3b"><div class="name">Майнер</div><div>відомий майнер або порт stratum-пулу</div><div class="ok">SIGKILL</div></div>
+		</div>
+	</div>
+</section>
+
+<section class="slide dark" data-id="demo" data-section="Модуль 3 · Назар Дяченко" data-notes="≈50 с. На слайді лог справжнього запуску. Для живого показу є команда sudo bash demo/show.sh: кероване демо в tmux, де Enter вмикає наступну сцену. Спершу атака йде без захисту, потім та сама атака з Falco-lite. Під кожним kill агент друкує дерево процесів і час реакції.">
+	<div class="reveal">
+		<h2>Справжній запуск: 9 / 9</h2>
+		<div class="log">
+			<div class="l"><span class="t">17:18:19</span><span class="kill">KILL</span><span>reverse_shell</span><span>bash → 127.0.0.1:9001</span></div>
+			<div class="l"><span class="t">17:18:20</span><span class="kill">KILL</span><span>reverse_shell</span><span>bash у фоні → 127.0.0.1:9003</span></div>
+			<div class="l"><span class="t">17:18:21</span><span class="kill">KILL</span><span>exec_from_tmp</span><span>/tmp/.falco-demo</span></div>
+			<div class="l"><span class="t">17:18:22</span><span class="alert">ALERT</span><span>shadow_read</span><span>cat /etc/shadow (відмовлено)</span></div>
+			<div class="l"><span class="t">17:18:22</span><span class="kill">KILL</span><span>setuid_root</span><span>rootsh отримав root</span></div>
+			<div class="l"><span class="t">17:18:22</span><span class="kill">KILL</span><span>ptrace_attach</span><span>ptrace до дочірнього процесу</span></div>
+			<div class="l"><span class="t">17:18:23</span><span class="kill">KILL</span><span>miner_exec</span><span>xmrig</span></div>
+			<div class="l"><span class="t">17:18:23</span><span class="kill">KILL</span><span>miner_pool</span><span>bash → 127.0.0.1:3333</span></div>
+		</div>
+		<p class="body muted" style="margin-top:28px">+ звичайні команди (ls, id, мережа) не дали жодного алерту</p>
+	</div>
+</section>
+
+<section class="slide light" data-id="results" data-section="Модуль 3 · Назар Дяченко" data-notes="≈45 с. Медіана 30 вимірювань становить 4,5 мс. Відлік починається перед connect() і закінчується, коли вбитий процес зібрано, тому це верхня межа. 12 програм eBPF, жодного модуля ядра. 128 юніт-перевірок без root. Ми самі намагалися обійти агента: 31 знахідка, 26 виправили, 5 записали як обмеження. Приклади закритих обходів є на слайді.">
+	<div class="reveal">
+		<h2>Що ми виміряли</h2>
+		<div class="cols c4" style="margin-top:64px">
+			<div class="stat"><div class="num"><span class="count" data-to="4.5" data-dec="1">4,5</span><span class="unit"> мс</span></div><div class="label">від connect() до завершення процесу</div><div class="note">медіана 30 запусків, верхня межа</div></div>
+			<div class="stat"><div class="num"><span class="count" data-to="12">12</span></div><div class="label">eBPF-програм, без модулів ядра</div><div class="note">перевірено на ядрі 6.18</div></div>
+			<div class="stat"><div class="num"><span class="count" data-to="128">128</span></div><div class="label">юніт-перевірок без root</div><div class="note">парсер · дерево · рушій · вивід</div></div>
+			<div class="stat"><div class="num"><span class="count" data-to="26">26</span></div><div class="label">виправлено з 31 знахідки</div><div class="note">5 задокументовано як обмеження</div></div>
+		</div>
+		<p class="body" style="margin-top:48px;color:var(--ink2)">Ми самі шукали обходи і закрили: <span class="mono">cd /tmp &amp;&amp; ./x</span>, 32-бітні виклики, reverse shell у фоні, підробку логу через перенос рядка.</p>
+	</div>
+</section>
+
+<section class="slide dark" data-id="limits" data-section="Модуль 3 · Назар Дяченко" data-notes="≈40 с. Агент, який вбиває процеси, сам може стати загрозою, тому три запобіжники. Обмеження: kill виконується з userspace, тож процес встигає зробити той виклик, на який спрацювало правило; умови за іменем процесу обходяться перейменуванням; процеси в інших просторах PID агент не бачить, тому його запускають на хості. Наступний крок: блокувати виклик ще в ядрі через LSM-хуки.">
+	<div class="reveal">
+		<h2>Запобіжники й обмеження</h2>
+		<div class="cols c2">
+			<div>
+				<h3>Запобіжники</h3>
+				<ul class="dash">
+					<li>Ніколи не вбиває pid 1, себе та своїх предків.</li>
+					<li>Dry-run: лише пише <span class="mono">would_kill</span>.</li>
+					<li>Зі структурною помилкою в правилах агент не стартує.</li>
+				</ul>
+			</div>
+			<div>
+				<h3>Обмеження</h3>
+				<ul class="dash">
+					<li>Kill з userspace: процес встигає зробити виклик.</li>
+					<li>Умови за іменем процесу обходяться перейменуванням.</li>
+					<li>Процеси в інших просторах PID не видно, тому агент працює на хості.</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="slide light" data-id="team" data-section="Команда" data-notes="≈20 с. Хто за що відповідав. Модулі збігаються зі структурою коду: кожен може відкрити свої файли і пояснити їх.">
+	<div class="reveal">
+		<h2>Хто що робив</h2>
+		<div class="cols c3" style="margin-top:64px">
+			<div class="member"><div class="who">Микита Вельбовець</div><div class="role">eBPF і завантажувач</div><div class="what">Програми в ядрі, передача подій, підключення хуків.</div><div class="files">bpf/falco.bpf.c<br>src/loader.c · src/event.h</div></div>
+			<div class="member"><div class="who">Томас Іванаускас</div><div class="role">Рушій правил</div><div class="what">Парсер YAML, дерево процесів, зіставлення подій.</div><div class="files">src/rules.c<br>src/proctree.c · src/engine.c</div></div>
+			<div class="member"><div class="who">Назар Дяченко</div><div class="role">Реакція та вивід</div><div class="what">Kill, JSON, syslog, TUI, тести, демо, CI.</div><div class="files">src/response.c · src/output.c<br>src/tui.c · src/main.c<br>tests/ · demo/ · .github/</div></div>
+		</div>
+	</div>
+</section>
+
+<section class="slide dark" data-id="questions" data-section="Питання" data-notes="Подякувати. Якщо питання збігається зі списком, клацнути на нього, і відкриється слайд-відповідь. Повернутися сюди можна кнопкою внизу слайда або клавішею Q.">
+	<div class="reveal" style="display:flex;flex-direction:column;height:100%">
+		<h1>Питання?</h1>
+		<ul class="qlist" id="qlist"></ul>
+	</div>
+</section>
+
+<section class="slide light appendix" data-id="q-safe" data-section="Додаток" data-q="Чи безпечно запускати свій код у ядрі?" data-notes="Ключове слово: верифікатор.">
+	<div class="reveal" style="display:flex;flex-direction:column;height:100%">
+		<h2>Чи безпечно запускати свій код у ядрі?</h2>
+		<div class="answer">
+			<p>Перед завантаженням кожну eBPF-програму перевіряє верифікатор ядра: обмежені цикли, перевірка кожного доступу до пам'яті, лише дозволені функції.</p>
+			<p>Якщо перевірка не пройшла, програма просто не завантажиться, і ядро працює далі. Помилка в модулі ядра натомість може його покласти.</p>
+		</div>
+		<a class="back" href="#questions">← до питань</a>
+	</div>
+</section>
+
+<section class="slide dark appendix" data-id="q-core" data-section="Додаток" data-q="Що таке CO-RE і BTF?" data-notes="Один бінарник для різних версій ядра.">
+	<div class="reveal" style="display:flex;flex-direction:column;height:100%">
+		<h2>Що таке CO-RE і BTF?</h2>
+		<div class="answer">
+			<p>BTF описує всі структури ядра, і ядро носить цей опис у собі. CO-RE (compile once, run everywhere) означає, що libbpf під час завантаження підставляє правильні зміщення полів для конкретного ядра.</p>
+			<p>Тому програму не треба перекомпілювати під кожну версію ядра. Перевірено на ядрі 6.18.</p>
+		</div>
+		<a class="back" href="#questions">← до питань</a>
+	</div>
+</section>
+
+<section class="slide light appendix" data-id="q-kill" data-section="Додаток" data-q="Чому kill з userspace, а не в ядрі?" data-notes="Компроміс між простотою і швидкістю.">
+	<div class="reveal" style="display:flex;flex-direction:column;height:100%">
+		<h2>Чому kill з userspace?</h2>
+		<div class="answer">
+			<p>Рішення потребує дерева процесів і правил з YAML, а їх простіше і безпечніше тримати в userspace, ніж у ядрі.</p>
+			<p>Ціна такого рішення в тому, що процес встигає зробити той виклик, на який спрацювало правило. Медіана від connect() до завершення процесу становить 4,5 мс (верхня межа). Наступний крок: блокувати виклик у ядрі через LSM-хуки.</p>
+		</div>
+		<a class="back" href="#questions">← до питань</a>
+	</div>
+</section>
+
+<section class="slide dark appendix" data-id="q-fp" data-section="Додаток" data-q="Як уникаєте хибних спрацювань?" data-notes="Allow-list, вузькі правила, dry-run, перевірка в демо.">
+	<div class="reveal" style="display:flex;flex-direction:column;height:100%">
+		<h2>Як уникаєте хибних спрацювань?</h2>
+		<div class="answer">
+			<p>Частина правил вузька. Правило setuid спрацьовує лише тоді, коли не-root отримує root не через sudo, su, passwd тощо. Для shadow є allow-list: sshd, sudo, passwd.</p>
+			<p>Частина навмисно широка: будь-який запуск із /tmp, ptrace не налагоджувачем, порти майнінг-пулів. Тому на новій системі агент спершу запускають у режимі dry-run, а демо перевіряє, що звичайні команди не дають алертів.</p>
+		</div>
+		<a class="back" href="#questions">← до питань</a>
+	</div>
+</section>
+
+<section class="slide light appendix" data-id="q-rename" data-section="Додаток" data-q="А якщо атакувальник перейменує процес?" data-notes="Умови за іменем процесу записані в обмеженнях. Шлях і права беремо з ядра, з двома винятками.">
+
+	<div class="reveal" style="display:flex;flex-direction:column;height:100%">
+		<h2>А якщо процес перейменують?</h2>
+		<div class="answer">
+			<p>Усі умови за іменем процесу справді обходяться перейменуванням: і allow-list, і списки на кшталт xmrig чи bash. Це записано в обмеженнях.</p>
+			<p>Шлях до файлу, inode і нові права ми беремо з ядра, тож перейменування на них не впливає. Винятки: шляхи довші за 255 символів і chroot у user namespace.</p>
+		</div>
+		<a class="back" href="#questions">← до питань</a>
+	</div>
+</section>
+
+<section class="slide dark appendix" data-id="q-tested" data-section="Додаток" data-q="Як ви перевіряли, що агент працює?" data-notes="Три рівні: юніт-тести, демо, спроби обходу.">
+	<div class="reveal" style="display:flex;flex-direction:column;height:100%">
+		<h2>Як ви перевіряли?</h2>
+		<div class="answer">
+			<p>128 юніт-перевірок без root: парсер, дерево процесів, рушій, вивід. Демо проходить 9 сценаріїв: 7 зі справжнім SIGKILL, 1 алерт і перевірку, що звичайні команди не дають алертів.</p>
+			<p>І окремо ми самі шукали обходи: 31 знахідка, 26 виправлено, 5 записано як обмеження.</p>
+		</div>
+		<a class="back" href="#questions">← до питань</a>
+	</div>
+</section>
+
+<section class="slide dark appendix" data-id="q-cost" data-section="Додаток" data-q="Скільки коштує робота агента?" data-notes="Найгірше для агента, коли система лише створює процеси. Звичайне навантаження дає менше подій на секунду.">
+	<div class="reveal" style="display:flex;flex-direction:column;height:100%">
+		<h2>Скільки коштує робота агента?</h2>
+		<div class="answer">
+			<p>Найгірший випадок ми виміряли так: 5000 запусків процесів поспіль тривають 4,85 с без агента і 5,10 с з агентом, тобто приблизно на 5% довше. Агент витрачає близько 38 мкс процесорного часу на процес (fork, exec, exit) і 14 МБ пам'яті.</p>
+			<p>Від події в ядрі до надісланого SIGKILL минає близько 0,1 мс, і агент друкує це число під кожним kill. Виміряно на нашому ноутбуці під WSL2, ядро 6.18.</p>
+		</div>
+		<a class="back" href="#questions">← до питань</a>
+	</div>
+</section>
+
+<section data-q="Як саме агент бачить події?" class="slide light appendix" data-id="hooks" data-section="Додаток" data-notes="Ми підключаємося до функцій ядра і tracepoint'ів, де дані вже перевірені: повний шлях файлу, inode, нові права.">
+	<div class="reveal">
+		<h2>Як агент бачить події</h2>
+		<div class="table compact">
+			<div class="row th t3c"><div>Подія</div><div>Що отримуємо</div><div>Чому це важливо</div></div>
+			<div class="row t3c"><div class="name">execve</div><div>Повний шлях файлу</div><div>Ловимо і <span class="mono">cd /tmp &amp;&amp; ./x</span></div></div>
+			<div class="row t3c"><div class="name">fork, exit</div><div>Батько кожного процесу</div><div>Дерево не рветься на завершених</div></div>
+			<div class="row t3c"><div class="name">connect</div><div>TCP: адреса і порт, IPv4/IPv6</div><div>Reverse shell, майнінг-пул</div></div>
+			<div class="row t3c"><div class="name">openat</div><div>Inode файлу і результат</div><div>Видно і невдалі спроби</div></div>
+			<div class="row t3c"><div class="name">setuid</div><div>Нові права процесу</div><div>Ловимо успішне отримання root</div></div>
+			<div class="row t3c"><div class="name">ptrace</div><div>Хто і до кого під'єднується</div><div>Лише реальні спроби під'єднання</div></div>
+		</div>
+		<a class="back" href="#questions">← до питань</a>
+	</div>
+</section>
+
+</div>
+</div>
+
+<div class="progress chrome-ui" id="progress"></div>
+<div class="notes chrome-ui" id="notes"><div class="nt" id="notesTitle"></div><div id="notesText"></div></div>
+
+<script>
+(function () {
+	var stage = document.getElementById('stage');
+	var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+	var main = slides.filter(function (s) { return !s.classList.contains('appendix'); });
+	var notes = document.getElementById('notes');
+	var current = 0;
+
+	function fit() {
+		var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+		var x = (window.innerWidth - 1920 * s) / 2;
+		var y = (window.innerHeight - 1080 * s) / 2;
+		stage.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + s + ')';
+	}
+
+	function buildQuestions() {
+		var list = document.getElementById('qlist');
+		slides.forEach(function (s) {
+			if (!s.dataset.q)
+				return;
+			var li = document.createElement('li');
+			var n = list.children.length + 1;
+			li.innerHTML = '<span class="mono">A' + n + '</span><a href="#' + s.dataset.id + '">' + s.dataset.q + '</a>';
+			list.appendChild(li);
+		});
+	}
+
+	function codeLines() {
+		Array.prototype.forEach.call(document.querySelectorAll('pre.code'), function (pre) {
+			pre.innerHTML = pre.innerHTML.split('\n').map(function (line, i) {
+				return '<span class="ln" style="--i:' + i + '">' + line + '</span>';
+			}).join('');
+		});
+	}
+
+	var still = false;
+
+	function stagger() {
+		var groups = document.querySelectorAll('.table, .flow, .layer, .log, .qlist, .cover .team');
+		Array.prototype.forEach.call(groups, function (group) {
+			group.classList.add('stg');
+			Array.prototype.forEach.call(group.children, function (child, i) { child.style.setProperty('--i', i); });
+		});
+		Array.prototype.forEach.call(document.querySelectorAll('.timeline .step'), function (step, i) {
+			step.querySelector('.dot').style.setProperty('--i', i);
+		});
+	}
+
+	function formatNumber(value, decimals) {
+		return value.toFixed(decimals).replace('.', ',');
+	}
+
+	function countUp(slide) {
+		Array.prototype.forEach.call(slide.querySelectorAll('.count'), function (el) {
+			var target = parseFloat(el.dataset.to);
+			var decimals = parseInt(el.dataset.dec || '0', 10);
+			if (still) {
+				el.textContent = formatNumber(target, decimals);
+				return;
+			}
+			var begin = null;
+			el.textContent = formatNumber(0, decimals);
+			function tick(t) {
+				if (begin === null)
+					begin = t + 350;
+				var p = Math.max(0, Math.min(1, (t - begin) / 1000));
+				var eased = 1 - Math.pow(1 - p, 3);
+				el.textContent = formatNumber(target * eased, decimals);
+				if (p < 1 && !still && slide.classList.contains('active'))
+					requestAnimationFrame(tick);
+				else
+					el.textContent = formatNumber(target, decimals);
+			}
+			requestAnimationFrame(tick);
+		});
+	}
+
+	function smooth(a, b, x) {
+		var t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+		return t * t * (3 - 2 * t);
+	}
+
+	function asciiField(canvas, mask, cx, cy) {
+		var ctx = canvas.getContext('2d');
+		var W = canvas.width;
+		var H = canvas.height;
+		var cell = 20;
+		var levels = 10;
+		var step = 1000 / 24;
+		var ramp = ' .·:-=+*#';
+		var cols = Math.ceil(W / cell);
+		var rows = Math.ceil(H / cell);
+		var atlas = glyphs();
+		var weight = new Float32Array(cols * rows);
+		var ring = new Uint16Array(cols * rows);
+		var colWave = new Float32Array(cols);
+		var rowWave = new Float32Array(rows);
+		var diagWave = new Float32Array(cols + rows);
+		var ringWave = new Float32Array(1024);
+		var running = false;
+		var raf = 0;
+		var t0 = 0;
+		var last = 0;
+
+		for (var r = 0; r < rows; r++) {
+			for (var k = 0; k < cols; k++) {
+				var y = (r + .5) / rows;
+				var edge = smooth(.07, .17, y) * smooth(.93, .84, y);
+				weight[r * cols + k] = mask((k + .5) / cols, y) * edge;
+				ring[r * cols + k] = Math.min(1023, Math.round(Math.hypot(k - cols * cx, r - rows * cy) * 4));
+			}
+		}
+
+		function glyphs() {
+			var c = document.createElement('canvas');
+			c.width = ramp.length * cell;
+			c.height = levels * cell;
+			var g = c.getContext('2d');
+			g.font = '15px ' + getComputedStyle(document.documentElement).getPropertyValue('--mono');
+			g.textAlign = 'center';
+			g.textBaseline = 'middle';
+			for (var j = 0; j < levels; j++) {
+				g.fillStyle = 'rgba(255, 255, 255, ' + ((j + 1) / levels) + ')';
+				for (var i = 1; i < ramp.length; i++)
+					g.fillText(ramp[i], i * cell + cell / 2, j * cell + cell / 2);
+			}
+			return c;
+		}
+
+		function draw(t) {
+			var tt = t * .55;
+			var k, r;
+			for (k = 0; k < cols; k++)
+				colWave[k] = Math.sin(k * .16 + tt);
+			for (r = 0; r < rows; r++)
+				rowWave[r] = Math.sin(r * .22 - tt * .7);
+			for (k = 0; k < cols + rows; k++)
+				diagWave[k] = Math.sin(k * .1 + tt * .45);
+			for (k = 0; k < 1024; k++)
+				ringWave[k] = Math.sin(k / 4 * .18 - tt * .6);
+
+			ctx.clearRect(0, 0, W, H);
+			var i = 0;
+			for (r = 0; r < rows; r++) {
+				for (k = 0; k < cols; k++, i++) {
+					var v = (colWave[k] + rowWave[r] + diagWave[k + r] + ringWave[ring[i]] + 4) / 8;
+					if (v < .3)
+						continue;
+					var idx = Math.min(ramp.length - 1, Math.floor((v - .3) / .7 * ramp.length));
+					var a = Math.min(.6, (.08 + (v - .3) * .95) * weight[i]);
+					var lv = Math.round(a * levels) - 1;
+					if (idx < 1 || lv < 0)
+						continue;
+					ctx.drawImage(atlas, idx * cell, lv * cell, cell, cell, k * cell, r * cell, cell, cell);
+				}
+			}
+		}
+
+		function frame(now) {
+			raf = 0;
+			if (!running)
+				return;
+			if (now - last >= step) {
+				last = now - (now - last) % step;
+				draw((now - t0) / 1000);
+			}
+			raf = requestAnimationFrame(frame);
+		}
+
+		function halt() {
+			running = false;
+			if (raf)
+				cancelAnimationFrame(raf);
+			raf = 0;
+		}
+
+		draw(12.5);
+
+		return {
+			start: function () {
+				if (still) {
+					halt();
+					draw(12.5);
+					return;
+				}
+				if (running)
+					return;
+				running = true;
+				t0 = performance.now() - 12500;
+				last = 0;
+				raf = requestAnimationFrame(frame);
+			},
+			stop: halt
+		};
+	}
+
+	function background(slide) {
+		var c = slide.querySelector('canvas.bg');
+		if (!c) {
+			c = document.createElement('canvas');
+			c.className = 'bg';
+			c.width = 1920;
+			c.height = 1080;
+			slide.insertBefore(c, slide.firstChild);
+		}
+		c.setAttribute('aria-hidden', 'true');
+		slide.classList.add('has-bg');
+		return c;
+	}
+
+	var cover = document.querySelector('.slide[data-id="cover"]');
+	var thanks = document.querySelector('.slide[data-id="questions"]');
+	var fields = [
+		{ slide: cover, field: asciiField(background(cover), function (x) { return .3 + .7 * smooth(.45, .85, x); }, .8, .45) },
+		{ slide: thanks, field: asciiField(background(thanks), function (x, y) { return (.3 + .7 * smooth(.72, .22, y)) * (.12 + .88 * smooth(.5, .85, x)); }, .75, .28) }
+	];
+
+	function show(i) {
+		current = Math.max(0, Math.min(slides.length - 1, i));
+		slides.forEach(function (s, k) {
+			s.classList.toggle('active', k === current);
+			s.classList.toggle('past', k < current);
+		});
+		fields.forEach(function (f) {
+			if (f.slide === slides[current])
+				f.field.start();
+			else
+				f.field.stop();
+		});
+		countUp(slides[current]);
+		document.body.classList.toggle('on-accent', fields.some(function (f) { return f.slide === slides[current]; }));
+		var mainIndex = main.indexOf(slides[current]);
+		var pos = mainIndex >= 0 ? mainIndex + 1 : main.length;
+		document.getElementById('progress').style.width = (pos / main.length * 100) + '%';
+		document.getElementById('notesTitle').textContent = (slides[current].dataset.section || '') + ' · нотатки';
+		document.getElementById('notesText').textContent = slides[current].dataset.notes || '';
+		var id = slides[current].dataset.id;
+		if (location.hash !== '#' + id)
+			history.replaceState(null, '', '#' + id);
+	}
+
+	function byId(id) {
+		for (var k = 0; k < slides.length; k++)
+			if (slides[k].dataset.id === id)
+				return k;
+		return -1;
+	}
+
+	buildQuestions();
+	codeLines();
+	stagger();
+	window.addEventListener('resize', fit);
+	fit();
+
+	var start = byId(location.hash.slice(1));
+	show(start >= 0 ? start : 0);
+
+	window.addEventListener('hashchange', function () {
+		var k = byId(location.hash.slice(1));
+		if (k >= 0 && k !== current)
+			show(k);
+	});
+
+	document.addEventListener('keydown', function (e) {
+		if (e.ctrlKey || e.altKey || e.metaKey)
+			return;
+		var key = e.key;
+		var code = e.code;
+		if (key === 'ArrowRight' || key === 'PageDown' || key === ' ')
+			show(current + 1);
+		else if (key === 'ArrowLeft' || key === 'PageUp')
+			show(current - 1);
+		else if (key === 'Home')
+			show(0);
+		else if (key === 'End')
+			show(main.length - 1);
+		else if (code === 'KeyQ')
+			show(byId('questions'));
+		else if (code === 'KeyN')
+			notes.classList.toggle('on');
+		else if (code === 'KeyM') {
+			still = document.body.classList.toggle('calm');
+			show(current);
+		}
+		else if (code === 'KeyF') {
+			if (document.fullscreenElement)
+				document.exitFullscreen();
+			else
+				document.documentElement.requestFullscreen();
+		} else
+			return;
+		e.preventDefault();
+	});
+
+	document.addEventListener('click', function (e) {
+		if (e.target.closest('a') || e.target.closest('.notes') || e.target.closest('.qlist'))
+			return;
+		show(e.clientX > window.innerWidth / 2 ? current + 1 : current - 1);
+	});
+
+})();
+</script>
+</body>
+</html>
