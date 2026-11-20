@@ -1,0 +1,61 @@
+- name: reverse_shell
+  when:
+    syscall: connect
+    proc.comm: [bash, sh, dash, zsh, ksh]
+    proc.ancestor: [php-fpm, php-fpm8.1, php-fpm8.2, php-fpm8.3, php-fpm8.4, nginx, apache2, httpd, cron]
+  action: kill
+
+- name: exec_from_tmp
+  when:
+    syscall: execve
+    file.prefix: [/tmp/, /dev/shm/, /var/tmp/]
+  action: kill
+
+- name: shadow_read
+  when:
+    syscall: openat
+    file.path: [/etc/shadow, /etc/gshadow]
+    proc.comm.not: [sshd, sshd-session, sshd-auth, sudo, su, passwd, login, unix_chkpwd, chpasswd, useradd, usermod, groupadd, gpasswd, chage]
+  action: alert
+
+- name: setuid_root
+  when:
+    syscall: setuid
+    file.path.not:
+      - /usr/bin/sudo
+      - /usr/bin/sudo.ws
+      - /usr/lib/cargo/bin/sudo
+      - /usr/bin/su
+      - /usr/lib/cargo/bin/su
+      - /usr/bin/passwd
+      - /usr/bin/chsh
+      - /usr/bin/chfn
+      - /usr/bin/gpasswd
+      - /usr/bin/newgrp
+      - /usr/bin/mount
+      - /usr/bin/umount
+      - /usr/bin/fusermount3
+      - /usr/bin/pkexec
+      - /usr/lib/dbus-1.0/dbus-daemon-launch-helper
+      - /usr/lib/openssh/ssh-keysign
+      - /usr/lib/polkit-1/polkit-agent-helper-1
+      - /usr/lib/landscape/apt-update
+  action: kill
+
+- name: ptrace_attach
+  when:
+    syscall: ptrace
+    proc.comm.not: [gdb, strace, ltrace, lldb]
+  action: kill
+
+- name: miner_exec
+  when:
+    syscall: execve
+    proc.comm: [xmrig, minerd, cpuminer, ccminer, xmr-stak]
+  action: kill
+
+- name: miner_pool
+  when:
+    syscall: connect
+    net.port: [3333, 4444, 14444]
+  action: kill
