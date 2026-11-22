@@ -147,8 +147,8 @@ userspace:  читач подій → дерево процесів → руші
 | Модуль | Файли |
 |---|---|
 | eBPF-програми | `bpf/falco.bpf.c`, `src/event.h`, `src/loader.c` (завантаження, підключення хуків, відстежувані файли) |
-| Рушій правил | `src/rules.c`, `src/proctree.c`, `src/engine.c` |
-| Реакція та вивід | `src/response.c`, `src/output.c`, `src/tui.c`, `src/main.c`, `tests/`, `demo/`, `.github/` |
+| Рушій правил | `src/rules/` (`rules.c` — парсер, `engine.c` — зіставлення), `src/proctree/` |
+| Реакція та вивід | `src/response/` (`response.c`, `output.c`), `src/tui/`, `src/main.c`, `tests/`, `demo/`, `.github/` |
 
 Хуки:
 

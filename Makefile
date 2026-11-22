@@ -3,14 +3,16 @@ BPFTOOL ?= bpftool
 BUILD := build
 
 PKGS := libbpf yaml-0.1 ncurses
-CFLAGS := -O2 -Wall -Wextra -std=c11 -D_GNU_SOURCE -Isrc -I$(BUILD)
+MODULES := src/rules src/proctree src/response src/tui
+CFLAGS := -O2 -Wall -Wextra -std=c11 -D_GNU_SOURCE -Isrc $(addprefix -I,$(MODULES)) -I$(BUILD)
 
 LIBS := $(shell pkg-config --libs $(PKGS))
 STATIC_LIBS := -static $(shell pkg-config --static --libs $(PKGS))
 
-CORE := src/rules.c src/proctree.c src/engine.c src/output.c src/response.c
-SRCS := src/main.c src/loader.c src/tui.c $(CORE)
-HDRS := $(wildcard src/*.h)
+CORE := src/rules/rules.c src/rules/engine.c src/proctree/proctree.c \
+	src/response/output.c src/response/response.c
+SRCS := src/main.c src/loader.c src/tui/tui.c $(CORE)
+HDRS := $(wildcard src/*.h $(addsuffix /*.h,$(MODULES)))
 TESTS := $(patsubst tests/%.c,$(BUILD)/%,$(wildcard tests/test_*.c))
 
 .DELETE_ON_ERROR:
