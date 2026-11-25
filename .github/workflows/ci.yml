@@ -1,0 +1,27 @@
+name: ci
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm libbpf-dev libelf-dev libyaml-dev libncurses-dev \
+            zlib1g-dev pkg-config netcat-openbsd linux-tools-common linux-tools-$(uname -r)
+
+      - name: Build
+        run: make
+
+      - name: Unit tests
+        run: make test
+
+      - name: Static build
+        run: make static
+
+      - name: Attack demo
+        run: sudo bash demo/run.sh runner
